@@ -37,7 +37,7 @@ private:
         AscendC::LocalTensor<DT_X> yLocal = inQueueY.AllocTensor<DT_X>();
 
         AscendC::DataCopy(xLocal, xGm[progress * tileLength], this->tileLength);
-        AscendC::DataCopy(yLocal, xGm[progress * tileLength], this->tileLength);
+        AscendC::DataCopy(yLocal, yGm[progress * tileLength], this->tileLength);
 
         inQueueX.EnQue(xLocal);
         inQueueY.EnQue(yLocal);
@@ -58,7 +58,7 @@ private:
     __aicore__ inline void CopyOut(int32_t process)
     {
         AscendC::LocalTensor<DT_X> zLocal = outQueueZ.DeQue<DT_X>();
-        AscendC::DataCopy(zGm[progress * this->tileLength], this->tileLength);
+        AscendC::DataCopy(zGm[process * this->tileLength], zLocal, this->tileLength);
         outQueueZ.FreeTensor(zLocal);
     }
 
@@ -67,7 +67,7 @@ private:
 private:
     AscendC::TPipe pipe;
     AscendC::TQue<AscendC::QuePosition::VECIN, BUFFER_NUM> inQueueX;
-    AscendC::TQue<AscnedC::QuePosition::VECIN, BUFFER_NUM> inQueueY;
+    AscendC::TQue<AscendC::QuePosition::VECIN, BUFFER_NUM> inQueueY;
     AscendC::TQue<AscendC::QuePosition::VECOUT, BUFFER_NUM> outQueueZ;
     AscendC::GlobalTensor<DT_X> xGm;
     AscendC::GlobalTensor<DT_X> yGm;
