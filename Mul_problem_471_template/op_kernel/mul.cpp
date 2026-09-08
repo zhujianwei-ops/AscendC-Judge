@@ -14,8 +14,54 @@ public:
     __aicore__ inline void Process() {
 
     }
-private:
 
+
+private:    
+
+    __aicore__ inline void CopyIn(int32_t progress)
+    {
+        AscendC::LocalTensor<DT_X> xLocal = inQueueX.AllocTensor<DT_X>();
+        AscendC::LocalTensor<DT_X> yLocal = inQueueY.AllocTensor<DT_X>();
+
+        AscendC::DataCopy(xLocal, xGm[progress * tileLength], this->tileLength);
+        AscendC::DataCopy(yLocal, xGm[progress * tileLength], this->tileLength);
+
+        inQueueX.EnQue(xLocal);
+        inQueueY.EnQue(yLocal);
+    }
+
+    __aicore__ inline void Compute(int32_t progress)
+    {
+        AscendC::LocalTensor<DT_X> xLocal = inQueueX.DeQue<DT_X>();
+        AscendC::LocalTensor<DT_X> yLocal = inQueueY.DeQue<DT_X>();
+        AscendC::LocalTensor<DT_X> zLocal = outQueueZ.AllocTensor<DT_X>();
+
+        AscendC::Mul(zLocal, xLocal, yLocal, this->tileLength);
+        outQueueZ.EnQue<DT_X>(zLocal);
+        inQueueX.FreeTensor(xLocal);
+        inQueueY.FreeTensor(yLocal);
+    }
+
+    __aicore__ inline void CopyOut(int32_t process)
+    {
+        AscendC::LocalTensor<DT_X> zLocal = outQueueZ.DeQue<DT_X>();
+        AscendC::DataCopy(zGm[progress * this->tileLength], this->tileLength);
+        outQueueZ.FreeTensor(zLocal);
+    }
+
+
+
+private:
+    AscendC::TPipe pipe;
+    AscendC::TQue<AscendC::QuePosition::VECIN, BUFFER_NUM> inQueueX;
+    AscendC::TQue<AscnedC::QuePosition::VECIN, BUFFER_NUM> inQueueY;
+    AscendC::TQue<AscendC::QuePosition::VECOUT, BUFFER_NUM> outQueueZ;
+    AscendC::GlobalTensor<DT_X> xGm;
+    AscendC::GlobalTensor<DT_X> yGm;
+    AscendC::GlobalTensor<DT_X> zGm;
+    uint32_t blockLength;
+    uint32_t tileNum;
+    uint32_t tileLength;
 };
 
 template <typename DT_X>
