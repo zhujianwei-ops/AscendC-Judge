@@ -25,7 +25,7 @@ usage() {
   echo "  -e, --example           Run examples (requires NPU)"
   echo ""
   echo "Examples:"
-  echo "  bash build.sh           # Build with default soc (ascend910b)"
+  echo "  bash build.sh           # Build with default soc (ascend910_93)"
   echo "  bash build.sh -j8       # Build with 8 threads"
   echo "  bash build.sh --make_clean"
   echo "  bash build.sh -u        # Run UT tests"
@@ -47,7 +47,7 @@ clean_build_out() {
 }
 
 THREAD_NUM=${CORE_NUMS}
-COMPUTE_UNIT="ascend910b"
+COMPUTE_UNIT="ascend910_93"
 ENABLE_CLEAN=FALSE
 RUN_UT=FALSE
 RUN_EXAMPLE=FALSE

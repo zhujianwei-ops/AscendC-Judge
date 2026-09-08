@@ -69,17 +69,46 @@ static ge::graphStatus ReluTilingFunc(gert::TilingContext* context)
     ReluTilingData* tiling = context->GetTilingData<ReluTilingData>();
     OP_CHECK_NULL_WITH_CONTEXT(context, tiling);
 
-    // TODO: 设置 tiling 数据
-    tiling->totalNum = 0;
-    tiling->blockFactor = 1;
-    tiling->ubFactor = 0;
+    // 获取输入元素总数与数据类型字长
+    const gert::Tensor* inputTensor = context->GetInputTensor(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, inputTensor);
+    auto inputDesc = context->GetInputDesc(0);
+    OP_CHECK_NULL_WITH_CONTEXT(context, inputDesc);
+    int64_t totalNum = inputTensor->GetShapeSize();
+    ge::DataType dtype = inputDesc->GetDataType();
+    int64_t typeSize = (dtype == ge::DT_FLOAT16 || dtype == ge::DT_BF16) ? 2 : 4;
 
-    context->SetBlockDim(1);
+    // 每个核均分处理: blockFactor 为每核元素数, blockNum 为启动核数
+    int64_t blockFactor = (totalNum + coreNum - 1) / coreNum;
+    if (blockFactor < 1) {
+        blockFactor = 1;
+    }
+    int64_t blockNum = (totalNum + blockFactor - 1) / blockFactor;
+    if (blockNum < 1) {
+        blockNum = 1;
+    }
+    if (blockNum > coreNum) {
+        blockNum = coreNum;
+    }
+
+    // UB 上存在 2 个输入 buffer + 2 个输出 buffer(双缓冲), 均分 UB 并按 32B 对齐
+    int64_t ubElems = static_cast<int64_t>(ubSize) / (4 * typeSize);
+    int64_t alignElems = 32 / typeSize;
+    int64_t ubFactor = (ubElems / alignElems) * alignElems;
+    if (ubFactor < alignElems) {
+        ubFactor = alignElems;
+    }
+
+    // TODO: 设置 tiling 数据
+    tiling->totalNum = totalNum;
+    tiling->blockFactor = blockFactor;
+    tiling->ubFactor = ubFactor;
+
+    context->SetBlockDim(blockNum);
 
     // 根据输入 dtype 选择 tilingKey
     uint64_t tilingKey;
-    auto inputDesc = context->GetInputDesc(0);
-    if (inputDesc != nullptr && (inputDesc->GetDataType() == ge::DT_FLOAT16 || inputDesc->GetDataType() == ge::DT_BF16)) {
+    if (dtype == ge::DT_FLOAT16 || dtype == ge::DT_BF16) {
         tilingKey = GET_TPL_TILING_KEY(RELU_TPL_SCH_MODE_0);
     } else {
         tilingKey = GET_TPL_TILING_KEY(RELU_TPL_SCH_MODE_1);
