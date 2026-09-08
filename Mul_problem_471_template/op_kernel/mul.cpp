@@ -4,15 +4,28 @@
 #include "mul_tiling.h"
 #include "tiling_key_mul.h"
 
+constexpr int32_t BUFFER_NUM = 2;
+
 template <class DT_X>
 class KernelMul {
 public:
     __aicore__ inline KernelMul() {}
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR z, uint32_t length) {
-
+        xGm.SetGlobalBuffer((__gm__ DT_X*)x + this->blockLength * AscendC::GetBlockIdx(), this->blockLength);
+        yGm.SetGlobalBuffer((__gm__ DT_X*)y + this->blockLength * AscendC::GetBlockIdx(), this->blockLength);
+        zGm.SetGlobalBuffer((__gm__ DT_X*)z + this->blockLength * AscendC::GetBlockIdx(), this->blockLength);
+        pipe.InitBuffer(inQueueX, BUFFER_NUM, this->tileLength * sizeof(DT_X));
+        pipe.InitBuffer(inQueueY, BUFFER_NUM, this->tileLength * sizeof(DT_X));
+        pipe.InitBuffer(outQueueZ, BUFFER_NUM, this->tileLength * sizeof(DT_X));
     }
     __aicore__ inline void Process() {
-
+        int32_t loopCount = this->tileNum * BUFFER_NUM;
+        for (int32_t i = 0; i < loopCount; i++)
+        {
+            CopyIn(i);
+            Compute(i);
+            CopyOut(i);
+        }
     }
 
 
